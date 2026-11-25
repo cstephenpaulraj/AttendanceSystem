@@ -1,0 +1,8 @@
+# PTZ laptop demo - all four apps share one Python environment (~350 MB installed)
+opencv-python>=4.10,<5        # webcam, YuNet face detector, SFace face recogniser (CPU)
+numpy>=1.24
+faiss-cpu>=1.9                # fast face search on the Edge AI side
+fastapi>=0.110                # HTTP APIs for the converter and the Edge AI service
+uvicorn>=0.29
+python-multipart>=0.0.9       # photo uploads
+requests>=2.31
