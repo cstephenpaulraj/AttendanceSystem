@@ -105,7 +105,7 @@ def push_to_edge(job, good):
         detail = r.json().get("detail")
     except ValueError:
         detail = r.text
-    if r.status_code in (400, 401, 409, 422):
+    if r.status_code in (400, 401, 403, 409, 422):
         raise ValueError(f"Edge AI refused: {detail}")
     return False, detail
 
