@@ -42,7 +42,7 @@ Each 300-seat hall has one primary PTZ camera and one standby PTZ camera (Matrix
 | PTZ_03_Face_enrolment_workflow.drawio | Staff-supervised enrolment on the college phone, office conversion, Edge AI checks, backup, camera specification |
 | PTZ_04_Attendance_marking_workflow.drawio | Session from the central system, primary / standby / RF fallback, revisit, NOT IN LIST, lecturer override, pull API |
 
-Copies are in the project files folder `ptz_concept/` (named 01_ to 04_).
+Each diagram also has a PDF next to it (same name, .pdf). Copies are in the project files folder `ptz_concept/` (named 01_ to 04_).
 
 ## 4. Who does what
 
@@ -344,4 +344,5 @@ Tested end to end on a Linux test machine (OpenCV 4.14, FAISS 1.16, CPU) with 6 
 | Date | Version | Change |
 |---|---|---|
 | 25 November 2026 | 1 | Concept, deck, four diagrams, laptop demo with four apps; tone removed; office enrolment path; face database only on the Edge AI |
+| 26 November 2026 | 2.1 | PDF versions of the four diagrams added; small layout fixes (box borders, enrolment diagram labels) |
 | 26 November 2026 | 2 | Staff-supervised enrolment on a dedicated college phone with camera specification; sessions and student lists from the central system; NOT_IN_LIST and LOCAL sessions; pull API by session at any time; RF reader fallback; lecturer override within 2 days; face database backup and misuse protection; central system role in the stack; diagrams, demo (five apps) and user guide updated |
