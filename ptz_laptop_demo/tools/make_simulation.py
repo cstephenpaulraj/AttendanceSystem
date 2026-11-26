@@ -17,6 +17,9 @@ It synthesises:
   sim\\classroom.mp4                       a video that pans across a wide classroom, stopping
                                           at "taught points" like the PTZ camera does         -> app 4
   sim\\expected.txt                        who is in each scene (to check the result)
+  sim\\college_students.csv                the college student list with RF card numbers     -> app 5
+  sim\\timetable.csv                       3 lecture sessions of today with their students     -> app 5
+  sim\\rf_taps.txt                         RF card taps for the "both cameras failed" test     -> app 4
 If a person has 2 or more photos, the LAST photo is kept out of enrolment and used only for the
 classroom pictures, so recognition is tested on a photo the system has never seen.
 """
@@ -155,6 +158,8 @@ def main():
     ap.add_argument("--scenes", type=int, default=6, help="number of classroom pictures")
     ap.add_argument("--per-scene", type=int, default=6, help="people per classroom picture")
     ap.add_argument("--shots", type=int, default=5, help="enrolment shots per person")
+    ap.add_argument("--class-name", default="MBBS1", help="class of the simulated students")
+    ap.add_argument("--hall", default="Hall 1", help="hall of the simulated sessions")
     args = ap.parse_args()
 
     engine = FaceEngine(need_recogniser=False, score_threshold=0.6)
@@ -202,8 +207,28 @@ def main():
     (out / "expected.txt").write_text(
         "Who is in each classroom picture (UNKNOWN_* must NOT be marked present):\n" + "\n".join(lines) +
         "\nclassroom.mp4: everyone (" + ", ".join(p["label"] for p in people) + ")\n")
+    # ---- college central system data: student list with RF cards, a timetable, RF card taps
+    studs = [p["label"] for p in people if not p["stranger"]]
+    with open(out / "college_students.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("student_id,name,class_name,rf_card\n")
+        for i, lab in enumerate(studs, 1):
+            sid, _, nm = lab.partition("_")
+            f.write(f"{sid},{nm.replace('_', ' ') or sid},{args.class_name},RF{10000 + i}\n")
+    ids = [lab.partition("_")[0] for lab in studs]
+    sessions = [  # session 2 leaves out the last student -> that student is reported NOT_IN_LIST
+        ("SIM-{date}-ANAT101", "ANAT101", "Anatomy", "L01", "Dr Lecturer One", "09:00", "10:00", ids),
+        ("SIM-{date}-PHYS102", "PHYS102", "Physiology", "L02", "Dr Lecturer Two", "11:00", "12:00", ids[:-1]),
+        ("SIM-{date}-BIOC103", "BIOC103", "Biochemistry", "L03", "Dr Lecturer Three", "14:00", "15:00", ids)]
+    with open(out / "timetable.csv", "w", newline="", encoding="utf-8") as f:
+        f.write("session_id,subject_code,subject_name,lecturer_id,lecturer_name,hall,start_time,end_time,students\n")
+        for s in sessions:
+            f.write(",".join(s[:5]) + f",{args.hall}," + ",".join(s[5:7]) + "," + " ".join(s[7]) + "\n")
+    taps = [f"RF{10000 + i}" for i in range(1, len(studs) + 1)][:max(1, len(studs) - 1)] + ["RF99999"]
+    (out / "rf_taps.txt").write_text("\n".join(taps) + "\n")
     print(f"\nMade {sum(not p['stranger'] for p in people)} enrolment folders in {out / 'enrol'}, "
-          f"{args.scenes} classroom pictures in {scenes}, and {out / 'classroom.mp4'} ({stops} taught points).")
+          f"{args.scenes} classroom pictures in {scenes}, {out / 'classroom.mp4'} ({stops} taught points),\n"
+          f"and the central system files {out / 'college_students.csv'}, {out / 'timetable.csv'} (3 sessions) "
+          f"and {out / 'rf_taps.txt'}.")
 
 
 if __name__ == "__main__":

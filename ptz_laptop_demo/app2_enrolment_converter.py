@@ -1,6 +1,8 @@
 """APP 2 - ENROLMENT CONVERTER  (this laptop plays the office PC)
 
-1. Receives a student's enrolment photos from the Face capture app (app 1).
+1. Receives a student's enrolment photos from the Face capture app (app 1), which runs on the dedicated
+   college phone under college staff supervision. Uploads are accepted only from a registered college
+   phone, with a valid staff ID + PIN and the staff member's confirmation that the ID card was checked.
 2. Verifies them: exactly one face per photo, big enough, sharp, well lit, and all photos the same person.
 3. Converts each good photo into a standard database image (face aligned to 112 x 112) plus its face code.
 4. Pushes the database images to the Edge AI service (app 3), which stores them.
@@ -89,7 +91,8 @@ def convert(job_dir):
 
 def push_to_edge(job, good):
     payload = {
-        "student_id": job["student_id"], "name": job["name"], "class_name": job["class_name"], "replace": True,
+        "student_id": job["student_id"], "name": job["name"], "class_name": job["class_name"],
+        "supervised_by": job["supervised_by"], "device_id": job["device_id"],
         "templates": [{"embedding": g["embedding"].tolist(), "quality": g["quality"],
                        "image_jpg_b64": base64.b64encode(cv2.imencode(".jpg", g["aligned"],
                                                                       [cv2.IMWRITE_JPEG_QUALITY, 95])[1]).decode()}
@@ -154,8 +157,16 @@ def retry_loop():
 # =====================================================================  API
 @app.post("/api/upload")
 def upload(student_id: str = Form(...), name: str = Form(...), class_name: str = Form(...),
-           photos: list[UploadFile] = File(...)):
+           staff_id: str = Form(...), staff_pin: str = Form(...), device_id: str = Form(...),
+           id_card_checked: bool = Form(False), photos: list[UploadFile] = File(...)):
     student_id, name, class_name = student_id.strip(), name.strip(), class_name.strip().upper()
+    staff_id, device_id = staff_id.strip().upper(), device_id.strip().upper()
+    if device_id not in config.ENROLMENT_DEVICES:
+        raise HTTPException(403, f"{device_id} is not a registered college enrolment phone")
+    if config.STAFF_ACCOUNTS.get(staff_id) != staff_pin:
+        raise HTTPException(403, "Wrong staff ID or PIN: enrolment must be supervised by college staff")
+    if not id_card_checked:
+        raise HTTPException(400, "The supervising staff member must confirm the student's ID card was checked")
     if not (student_id and len(student_id) <= 32 and all(c.isalnum() or c in "-_" for c in student_id)):
         raise HTTPException(400, "Student ID may use letters, digits, - and _ only (max 32)")
     if not name or not class_name:
@@ -164,7 +175,7 @@ def upload(student_id: str = Form(...), name: str = Form(...), class_name: str =
         raise HTTPException(400, "Send 1 to 20 photos")
     job = {"job_id": dt.datetime.now().strftime("%Y%m%d%H%M%S-") + uuid.uuid4().hex[:6],
            "student_id": student_id, "name": name, "class_name": class_name, "received_at": now(),
-           "photos": len(photos), "status": "RECEIVED"}
+           "photos": len(photos), "supervised_by": staff_id, "device_id": device_id, "status": "RECEIVED"}
     job_dir = INBOX / job["job_id"]
     job_dir.mkdir(parents=True, exist_ok=True)
     for i, p in enumerate(photos, 1):
@@ -173,7 +184,7 @@ def upload(student_id: str = Form(...), name: str = Form(...), class_name: str =
         jobs.insert(0, job)
         process(job)
         save_log()
-    print(f"[office] {student_id} {name}: {job['accepted']}/{job['photos']} good -> {job['status']}")
+    print(f"[office] {student_id} {name} (staff {staff_id}, {device_id}): {job['accepted']}/{job['photos']} good -> {job['status']}")
     return {k: v for k, v in job.items() if not k.startswith("_")}
 
 
@@ -192,10 +203,11 @@ def dashboard():
     e = html.escape
     rows = "".join(
         f"<tr><td>{e(j['received_at'])}</td><td>{e(j['student_id'])}</td><td>{e(j['name'])}</td>"
-        f"<td>{e(j['class_name'])}</td><td>{j.get('accepted', 0)} / {j['photos']}</td>"
+        f"<td>{e(j['class_name'])}</td><td>{e(j.get('supervised_by', '-'))}</td><td>{e(j.get('device_id', '-'))}</td>"
+        f"<td>{j.get('accepted', 0)} / {j['photos']}</td>"
         f"<td>{'<br>'.join(e(r['photo'] + ': ' + r['reason']) for r in j.get('rejected', [])) or '-'}</td>"
         f"<td class={'ok' if j['status'].startswith('STORED') else 'bad'}>{e(j['status'])}</td></tr>"
-        for j in jobs) or "<tr><td colspan=7>No enrolments received yet</td></tr>"
+        for j in jobs) or "<tr><td colspan=9>No enrolments received yet</td></tr>"
     return f"""<!doctype html><html><head><meta charset=utf-8><meta http-equiv=refresh content=3>
 <title>Enrolment Converter</title><style>
 body{{font-family:Arial,sans-serif;font-size:15px;margin:24px;background:#f7f6f2;color:#1b2430}}
@@ -205,7 +217,7 @@ td,th{{border:1px solid #d6d2c6;padding:6px 10px;text-align:left;vertical-align:
 <h1>APP 2 &middot; Enrolment Converter (office PC)</h1>
 <p class=note>Edge AI: {e(config.EDGE_URL)} &middot; photos currently stored on this PC: <b>{photos_on_disk()}</b>
 &middot; page refreshes every 3 s</p>
-<table><tr><th>Received</th><th>ID</th><th>Name</th><th>Class</th><th>Good photos</th><th>Rejected photos</th>
+<table><tr><th>Received</th><th>ID</th><th>Name</th><th>Class</th><th>Supervised by</th><th>Device</th><th>Good photos</th><th>Rejected photos</th>
 <th>Status</th></tr>{rows}</table></body></html>"""
 
 

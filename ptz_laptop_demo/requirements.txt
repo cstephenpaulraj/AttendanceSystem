@@ -6,3 +6,4 @@ fastapi>=0.110                # HTTP APIs for the converter and the Edge AI serv
 uvicorn>=0.29
 python-multipart>=0.0.9       # photo uploads
 requests>=2.31
+cryptography>=42            # encrypted face database backups

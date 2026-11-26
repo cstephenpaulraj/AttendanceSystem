@@ -3,3 +3,4 @@ data/
 sim/
 __pycache__/
 *.pyc
+attendance_*.csv

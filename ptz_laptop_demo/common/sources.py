@@ -10,6 +10,10 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".wmv"}
 
 
+class CameraFailure(Exception):
+    """The camera cannot be opened or stopped giving pictures."""
+
+
 def list_images(folder):
     return sorted(p for p in Path(folder).iterdir() if p.suffix.lower() in IMAGE_EXT)
 
@@ -20,14 +24,20 @@ class FrameSource:
        * a picture file        -> that picture, repeated `hold` times
        * a folder of pictures  -> each picture in turn, each repeated `hold` times
        * a video file          -> its frames
+       * "fail"                -> a camera that is broken (to demonstrate the RF reader fallback)
     """
 
     def __init__(self, source="camera", hold=15, fps=10):
         self.hold, self.delay = max(1, hold), 1.0 / fps
         self.cap, self.images, self.live = None, [], False
         src = str(source)
+        if src.lower() in ("fail", "none", "broken"):
+            raise CameraFailure("camera simulated as failed")
         if src.lower() == "camera" or src.isdigit():
-            self.cap = open_camera(0 if src.lower() == "camera" else int(src))
+            try:
+                self.cap = open_camera(0 if src.lower() == "camera" else int(src))
+            except SystemExit as exc:
+                raise CameraFailure(str(exc)) from None
             self.live, self.name = True, "live webcam"
         else:
             p = Path(src)
@@ -51,6 +61,8 @@ class FrameSource:
         """Return (frame, label) or (None, None) at the end of the photos / video."""
         if self.cap is not None:
             ok, frame = self.cap.read()
+            if self.live and not ok:
+                raise CameraFailure("camera stopped giving pictures")
             if not self.live:
                 time.sleep(self.delay)
             return (frame, self.name) if ok else (None, None)

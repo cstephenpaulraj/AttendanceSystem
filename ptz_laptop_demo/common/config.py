@@ -29,6 +29,37 @@ OFFICE_URL = _env("OFFICE_URL", f"http://{OFFICE_HOST}:{OFFICE_PORT}")
 EDGE_URL = _env("EDGE_URL", f"http://{EDGE_HOST}:{EDGE_PORT}")
 # Shared key the Enrolment Converter must present to push faces to the Edge AI.
 EDGE_PUSH_KEY = _env("EDGE_PUSH_KEY", "ptz-demo-key")
+# Key the college central system must present to send sessions / student lists and pull attendance.
+COLLEGE_API_KEY = _env("COLLEGE_API_KEY", "college-demo-key")
+HALL = _env("HALL", "Hall 1")                  # the hall this Edge AI demo plays
+
+
+def _accounts(text):
+    """'STAFF01:1111,STAFF02:2222' -> {'STAFF01': '1111', 'STAFF02': '2222'}"""
+    out = {}
+    for item in text.split(","):
+        if ":" in item:
+            k, v = item.split(":", 1)
+            out[k.strip().upper()] = v.strip()
+    return out
+
+
+# ---- People (demo accounts; the real system uses the college login with roles) ----
+# College staff who supervise enrolment on the dedicated college phone, and approve deletions.
+STAFF_ACCOUNTS = _accounts(_env("STAFF_ACCOUNTS", "STAFF01:1111,STAFF02:2222,ADMIN01:9999"))
+# Lecturers who may override attendance (official duty) within OVERRIDE_WINDOW_HOURS.
+LECTURER_ACCOUNTS = _accounts(_env("LECTURER_ACCOUNTS", "L01:1001,L02:1002,L03:1003"))
+OVERRIDE_WINDOW_HOURS = _env("OVERRIDE_WINDOW_HOURS", 48, int)          # 2 days
+# Only these registered college phones may send enrolment photos.
+ENROLMENT_DEVICES = [d.strip().upper() for d in _env("ENROLMENT_DEVICES", "COLLEGE-PHONE-01").split(",")]
+ENROLMENT_DEVICE_ID = _env("ENROLMENT_DEVICE_ID", "COLLEGE-PHONE-01")  # the device this laptop plays
+
+# ---- Face database backup (Edge AI) ----
+BACKUP_DIR = Path(_env("BACKUP_DIR", str(DATA_DIR / "backup_disk")))   # plays the second disk / backup NAS
+BACKUP_DIR2 = _env("BACKUP_DIR2", "")                                  # optional, e.g. E:\ptz_backup (USB)
+BACKUP_KEY_FILE = Path(_env("BACKUP_KEY_FILE", str(DATA_DIR / "keys" / "backup.key")))
+BACKUP_KEEP = _env("BACKUP_KEEP", 14, int)                             # encrypted copies kept per folder
+BACKUP_CHECK_SEC = _env("BACKUP_CHECK_SEC", 30, int)                   # back up within 30 s of a change
 
 # ---- Camera (the laptop webcam plays the PTZ camera) ----
 CAMERA_INDEX = _env("CAMERA_INDEX", 0, int)
